@@ -1,10 +1,9 @@
-build-linux/
-build-windows/
-build/
-.vscode/
+*-build-*/
+.idea/
 roms/
 savestates/
 DMG_ROM.bin
 bootrom.bin
 *.ini
 *.dll
+vgcore.*
