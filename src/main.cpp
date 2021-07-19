@@ -1,8 +1,7 @@
 #include "mainwindow.h"
 
-int main(int argc, char* argv[])
-{
-  natsukashii::frontend::MainWindow window("natsukashii");
+int main(int argc, char* argv[]) {
+  natsukashii::frontend::MainWindow window("懐かしい");
 
   window.Run();
   

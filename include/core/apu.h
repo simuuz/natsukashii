@@ -6,9 +6,9 @@
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 
-constexpr int FREQUENCY = 96000;
+constexpr int FREQUENCY = 48000;
 constexpr int CHANNELS = 2;
-constexpr int SAMPLES = 8192;
+constexpr int SAMPLES = 4096;
 
 namespace natsukashii::core
 {

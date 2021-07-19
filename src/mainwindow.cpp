@@ -26,51 +26,54 @@ constexpr std::array<KeySaveState, 10> loadstate_buttons{
   std::make_pair(GLFW_KEY_F5,  5), std::make_pair(GLFW_KEY_F6, 6), std::make_pair(GLFW_KEY_F7, 7), std::make_pair(GLFW_KEY_F8, 8), std::make_pair(GLFW_KEY_F9, 9)
 };
 
-
 static void glfw_error_callback(int error, const char* description)
 {
   fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
-static void key_callback(GLFWwindow* window, int key_, int scancode, int action, int mods)
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
   if(action == GLFW_PRESS) {
-    g_window->core->key = key_;
-    switch(key_) {
+    g_window->core->key = key;
+    switch(key) {
       case GLFW_KEY_O: g_window->OpenFile(); break;
       case GLFW_KEY_S: g_window->core->Stop(); break;
       case GLFW_KEY_R: g_window->core->Reset(); break;
       case GLFW_KEY_P: g_window->core->Pause(); break;
-      case GLFW_KEY_Q: glfwSetWindowShouldClose(window, GLFW_TRUE); g_window->core->Stop(); break;
+      case GLFW_KEY_Q:
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+        g_window->core->Stop();
+        break;
     }
     
     for(int i = 0; i < 10; i++) {
-      if(savestate_buttons[i].first == g_window->core->key) {
+      if(savestate_buttons[i].first == key) {
         g_window->core->SaveState(savestate_buttons[i].second);
       }
 
-      if(loadstate_buttons[i].first == g_window->core->key) {
+      if(loadstate_buttons[i].first == key) {
         g_window->core->LoadState(loadstate_buttons[i].second);
       }
     }
-  } else {
+  } else if(action == GLFW_RELEASE) {
     g_window->core->key = 0;
   }
 }
 
 MainWindow::MainWindow(std::string title) : file("config.ini") {
   g_window = this;
-  glfwSetErrorCallback(glfw_error_callback);
-  if(!glfwInit())
+
+  if(glfwInit() == GLFW_FALSE)
   {
     running = false;
     core.reset();
     exit(1);
   }
   
-  const char* glsl_version = "#version 450";
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+  const char* glsl_version = "#version 330";
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwSetErrorCallback(glfw_error_callback);
 
   const GLFWvidmode *details = glfwGetVideoMode(glfwGetPrimaryMonitor());
   int w = details->width - (details->width / 4), h = details->height - (details->height / 4);
@@ -136,11 +139,27 @@ void MainWindow::UpdateTexture() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 }
 
+ImVec2 image_size;
+
+static void resize_callback(ImGuiSizeCallbackData* data) {
+  float x = ImGui::GetWindowSize().x - 15, y = ImGui::GetWindowSize().y - 15;
+  float current_aspect_ratio = x / y;
+  
+  if(aspect_ratio_gb > current_aspect_ratio) {
+    y = x / aspect_ratio_gb;
+  } else {
+    x = y * aspect_ratio_gb;
+  }
+
+  image_size = ImVec2(x, y);
+}
+
 void MainWindow::Run() {
-  int i = 0;
   ImGuiIO& io = ImGui::GetIO(); (void)io;
   
   while(!glfwWindowShouldClose(window)) {
+    u32 frameStartTicks = SDL_GetTicks();
+
     if(core->init && !core->pause) {
       PingEmuThread();
     }
@@ -156,28 +175,9 @@ void MainWindow::Run() {
     }
     
     UpdateTexture();
-    
-    i++;
-    if(i >= io.Framerate) {
-      i = 0;
-      char title[50]{0};
-      sprintf(title, "natsukashii [%.2f fps | %.2f ms]", io.Framerate, 1000 / io.Framerate);
-      glfwSetWindowTitle(window, title);
-    }
 
+    ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, FLT_MAX), resize_callback);
     ImGui::Begin("Image", (bool*)__null, ImGuiWindowFlags_NoTitleBar);
-
-    float x = ImGui::GetWindowSize().x - 15, y = ImGui::GetWindowSize().y - 15;
-    float current_aspect_ratio = x / y;
-    if(aspect_ratio_gb > current_aspect_ratio) {
-      y = x / aspect_ratio_gb;
-    } else {
-      x = y * aspect_ratio_gb;
-    }
-
-    ImVec2 image_size(x, y);
-    ImVec2 centered((ImGui::GetWindowSize().x - image_size.x) * 0.5, (ImGui::GetWindowSize().y - image_size.y) * 0.5);
-    ImGui::SetCursorPos(centered);
     ImGui::Image(reinterpret_cast<void*>(static_cast<intptr_t>(id)), image_size);
     ImGui::End();
 
@@ -197,6 +197,9 @@ void MainWindow::Run() {
     if(core->init && !core->pause) {
       WaitEmuThread();
     }
+    
+    while ((SDL_GetTicks() - frameStartTicks) < (1000 / 60))
+      SDL_Delay(1);
   }
 }
 

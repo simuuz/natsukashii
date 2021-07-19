@@ -1,4 +1,7 @@
 #include "core.h"
+#include <chrono>
+
+using clk = std::chrono::high_resolution_clock;
 
 namespace natsukashii::core
 {

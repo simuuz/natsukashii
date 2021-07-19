@@ -15,6 +15,14 @@ set(IMGUI_SRC_BACKEND
 
 set(IMGUI_SRC ${IMGUI_SRC_BASE} ${IMGUI_SRC_BACKEND})
 
+add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GLAD)
+
+if(WIN32)
+  set(FLAGS -static SDL2main SDL2 glfw3 OpenGL::GL gcc stdc++ winpthread winmm version Imm32 Setupapi)
+else()
+  set(FLAGS SDL2 glfw OpenGL::GL ${CMAKE_DL_LIBS} pthread)
+endif()
+
 file(GLOB_RECURSE EMU_SRC "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
 include_directories(
@@ -30,10 +38,11 @@ include_directories(
 
 find_package(OpenGL REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
+find_package(GLEW REQUIRED)
 find_package(SDL2 REQUIRED)
 add_subdirectory(include/external/nativefiledialog-extended/)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+add_compile_options(-O3 -g)
 
 add_executable(${CMAKE_PROJECT_NAME}
   ${IMGUI_SRC}
@@ -41,4 +50,4 @@ add_executable(${CMAKE_PROJECT_NAME}
   ${CMAKE_SOURCE_DIR}/include/external/glad/src/glad.c
 )
 
-target_link_libraries(${CMAKE_PROJECT_NAME} nfd -static SDL2main SDL2 glfw3 OpenGL::GL gcc stdc++ winpthread winmm version Imm32 Setupapi)
+target_link_libraries(${CMAKE_PROJECT_NAME} nfd ${FLAGS})

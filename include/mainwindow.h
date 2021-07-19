@@ -25,7 +25,8 @@ struct MainWindow
   mINI::INIFile file;
   mINI::INIStructure ini;
   GLFWwindow* window = nullptr;
-  unsigned int id;
   std::unique_ptr<Core> core;
+  int key;
+  unsigned int id;
 };
 } // natsukashii::frontend

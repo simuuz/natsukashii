@@ -8,7 +8,11 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_glfw.h"
 #include <glad/glad.h>
+#ifdef _WIN32
 #include <glfw/glfw3.h>
+#else
+#include <GLFW/glfw3.h>
+#endif
 
 using u8 = uint8_t;
 using u16 = uint16_t;

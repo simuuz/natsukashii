@@ -25,7 +25,6 @@ struct Core
   Bus bus;
   Cpu cpu;
   int key;
-  float fps = 60;
   bool pause = false;
   bool init = false;
 };
