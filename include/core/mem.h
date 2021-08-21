@@ -20,7 +20,7 @@ public:
   virtual u8 Read(u16 addr) { return 0xff; }
   virtual void Write(u16 addr, u8 val) { }
   virtual void Clear() { }
-  virtual void Save(std::string filename) { }
+  virtual void Save(const std::string& filename) { }
   virtual u8* GetROM() { }
   virtual u8* GetRAM() { }
   virtual void SetRam(std::ifstream& rhs) { }
@@ -29,13 +29,13 @@ public:
 class NoMBC : public Cart
 {
 public:
-  NoMBC(std::vector<u8>& rom);
-  u8 Read(u16 addr);
-  void Write(u16 addr, u8 val);
-  void Save(std::string filename) {}
-  u8* GetROM() { return rom.data(); }
-  u8* GetRAM() { u8 ram[EXTRAM_SZ]{0xff}; return ram; }
-  void SetRam(std::ifstream& rhs) { }
+  explicit NoMBC(std::vector<u8>& rom);
+  u8 Read(u16 addr) override;
+  void Write(u16 addr, u8 val) override;
+  void Save(const std::string& filename) override {}
+  u8* GetROM() override { return rom.data(); }
+  u8* GetRAM() override { u8 ram[EXTRAM_SZ]{0xff}; return ram; }
+  void SetRam(std::ifstream& rhs) override { }
 private:
   std::vector<u8> rom;
 };
@@ -43,13 +43,13 @@ private:
 class MBC1 : public Cart
 {
 public:
-  MBC1(std::vector<u8>& rom, std::string savefile);
-  u8 Read(u16 addr);
-  void Write(u16 addr, u8 val);
-  void Save(std::string filename);
-  u8* GetROM() { return rom.data(); }
-  u8* GetRAM() { return ram.data(); }
-  void SetRam(std::ifstream& rhs) {
+  MBC1(std::vector<u8>& rom, const std::string& savefile);
+  u8 Read(u16 addr) override;
+  void Write(u16 addr, u8 val) override;
+  void Save(const std::string& filename) override;
+  u8* GetROM() override { return rom.data(); }
+  u8* GetRAM() override { return ram.data(); }
+  void SetRam(std::ifstream& rhs) override {
     rhs.read((char*)ram.data(), EXTRAM_SZ);
   }
 private:
@@ -69,13 +69,13 @@ private:
 class MBC2 : public Cart
 {
 public:
-  MBC2(std::vector<u8>& rom, std::string savefile);
-  u8 Read(u16 addr);
-  void Write(u16 addr, u8 val);
-  void Save(std::string filename);
-  u8* GetROM() { return rom.data(); }
-  u8* GetRAM() { return ram.data(); }
-  void SetRam(std::ifstream& rhs) {
+  MBC2(std::vector<u8>& rom, const std::string& savefile);
+  u8 Read(u16 addr) override;
+  void Write(u16 addr, u8 val) override;
+  void Save(const std::string& filename) override;
+  u8* GetROM() override { return rom.data(); }
+  u8* GetRAM() override { return ram.data(); }
+  void SetRam(std::ifstream& rhs) override {
     rhs.read((char*)ram.data(), EXTRAM_SZ);
   }
 private:
@@ -89,13 +89,13 @@ private:
 class MBC3 : public Cart
 {
 public:
-  MBC3(std::vector<u8>& rom, std::string savefile);
-  u8 Read(u16 addr);
-  void Write(u16 addr, u8 val);
-  void Save(std::string filename);
-  u8* GetROM() { return rom.data(); }
-  u8* GetRAM() { return ram.data(); }
-  void SetRam(std::ifstream& rhs) {
+  MBC3(std::vector<u8>& rom, const std::string& savefile);
+  u8 Read(u16 addr) override;
+  void Write(u16 addr, u8 val) override;
+  void Save(const std::string& filename) override;
+  u8* GetROM() override { return rom.data(); }
+  u8* GetRAM() override { return ram.data(); }
+  void SetRam(std::ifstream& rhs) override {
     rhs.read((char*)ram.data(), EXTRAM_SZ);
   }
 private:
@@ -110,13 +110,13 @@ private:
 class MBC5 : public Cart
 {
 public:
-  MBC5(std::vector<u8>& rom, std::string savefile);
-  u8 Read(u16 addr);
-  void Write(u16 addr, u8 val);
-  void Save(std::string filename);
-  u8* GetROM() { return rom.data(); }
-  u8* GetRAM() { return ram.data(); }
-  void SetRam(std::ifstream& rhs) {
+  MBC5(std::vector<u8>& rom, const std::string& savefile);
+  u8 Read(u16 addr) override;
+  void Write(u16 addr, u8 val) override;
+  void Save(const std::string& filename) override;
+  u8* GetROM() override { return rom.data(); }
+  u8* GetRAM() override { return ram.data(); }
+  void SetRam(std::ifstream& rhs) override {
     rhs.read((char*)ram.data(), EXTRAM_SZ);
   }
 private:

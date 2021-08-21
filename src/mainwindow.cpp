@@ -199,7 +199,7 @@ void MainWindow::Run() {
     }
     
     //while ((SDL_GetTicks() - frameStartTicks) < (1000 / 60))
-      SDL_Delay(1);
+    SDL_Delay(1);
   }
 }
 

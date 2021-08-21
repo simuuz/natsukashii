@@ -2,7 +2,7 @@
 
 namespace natsukashii::core
 {
-MBC2::MBC2(std::vector<u8>& rom, std::string savefile) : rom(rom)
+MBC2::MBC2(std::vector<u8>& rom, const std::string& savefile) : rom(rom)
 {
   std::ifstream file{savefile, std::ios::binary};
   file.unsetf(std::ios::skipws);
@@ -55,7 +55,7 @@ void MBC2::Write(u16 addr, u8 val)
   }
 }
 
-void MBC2::Save(std::string filename)
+void MBC2::Save(const std::string& filename)
 {
   FILE* file = fopen(filename.c_str(), "wb");
   fwrite(ram.data(), 1, EXTRAM_SZ, file);

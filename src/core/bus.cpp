@@ -1,11 +1,13 @@
-#include "bus.h"
+#include <bus.h>
+
+#include <utility>
 
 namespace natsukashii::core
 {
-Bus::Bus(bool skip, std::string bootrom_path) : mem(skip, bootrom_path), ppu(skip), apu(skip) {}
+Bus::Bus(bool skip, std::string bootrom_path) : mem(skip, std::move(bootrom_path)), ppu(skip), apu(skip) {}
 
 void Bus::LoadROM(std::string path) {
-  this->mem.LoadROM(path);
+  this->mem.LoadROM(std::move(path));
   romopened = mem.rom_opened;
 }
 
@@ -30,19 +32,24 @@ u8 Bus::ReadByte(u16 addr) {
   }
 }
 
-u8 Bus::NextByte(u16 addr, u16& pc, u8& cycles) {
+u8 Bus::NextByte(u16& pc, u8& cycles) {
+  u8 val = ReadByte(pc);
   cycles += 4;
   pc++;
-
-  return ReadByte(addr);
+  return val;
 }
 
 u16 Bus::ReadHalf(u16 addr) {
   return (ReadByte(addr + 1) << 8) | ReadByte(addr);
 }
 
-u16 Bus::NextHalf(u16 addr, u16& pc, u8& cycles) {
-  return (NextByte(addr + 1, pc, cycles) << 8) | NextByte(addr, pc, cycles);
+u16 Bus::NextHalf(u16& pc, u8& cycles) {
+  u8 low = ReadByte(pc);
+  u8 high = ReadByte(pc + 1);
+  cycles += 8;
+  pc += 2;
+
+  return (high << 8) | low;
 }
 
 void Bus::WriteByte(u16 addr, u8 val) {

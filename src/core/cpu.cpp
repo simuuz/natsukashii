@@ -8,8 +8,6 @@ Cpu::Cpu(bool skip, Bus* bus) : bus(bus), skip(skip)
   //log = fopen("07_log.txt", "w");
   ime = false;
   halt = false;
-  cycles = 0;
-  total_cycles = 0;
   tima_cycles = 0;
   div_cycles = 0;
 
@@ -22,19 +20,15 @@ Cpu::Cpu(bool skip, Bus* bus) : bus(bus), skip(skip)
     regs.sp = 0xfffe;
     regs.pc = 0x100;
   }
-  else
-  {
-    regs.af = 0;
-    regs.bc = 0;
-    regs.de = 0;
-    regs.hl = 0;
-    regs.sp = 0;
-    regs.pc = 0;
-  }
 }
 
 void Cpu::Reset()
 {
+  ime = false;
+  halt = false;
+  tima_cycles = 0;
+  div_cycles = 0;
+
   if (skip)
   {
     regs.af = 0x1b0;
@@ -43,21 +37,6 @@ void Cpu::Reset()
     regs.hl = 0x14d;
     regs.sp = 0xfffe;
     regs.pc = 0x100;
-  }
-  else
-  {
-    ime = false;
-    halt = false;
-    cycles = 0;
-    total_cycles = 0;
-    tima_cycles = 0;
-    div_cycles = 0;
-    regs.af = 0;
-    regs.bc = 0;
-    regs.de = 0;
-    regs.hl = 0;
-    regs.sp = 0;
-    regs.pc = 0;
   }
 }
 
@@ -90,27 +69,26 @@ void Cpu::LoadState(int slot) {
 }
 
 
-void Cpu::Step()
+u8 Cpu::Step()
 {
-  HandleInterrupts();
-
-  cycles = 0;
+  u8 cycles = 0;
 
   if (!halt)
   {
-    opcode = bus->NextByte(regs.pc, regs.pc, cycles);
-    Execute(opcode);
+    opcode = bus->NextByte(regs.pc, cycles);
+    cycles += Execute(opcode);
   }
   else
   {
     cycles = 4;
   }
 
-  total_cycles += cycles;
+  return cycles;
 }
 
-void Cpu::Execute(u8 opcode)
+u8 Cpu::Execute(u8 opcode)
 {
+  u8 cycles = 0;
   switch (opcode)
   {
   case 0:
@@ -120,7 +98,7 @@ void Cpu::Execute(u8 opcode)
   case 0x11:
   case 0x21:
   case 0x31:  // LD r16, u16
-    WriteR16<1>((opcode >> 4) & 3, bus->NextHalf(regs.pc, regs.pc, cycles));
+    WriteR16<1>((opcode >> 4) & 3, bus->NextHalf(regs.pc, cycles));
     break;
   case 0x40 ... 0x75:
   case 0x77 ... 0x7f:  // LD r8, r8
@@ -134,7 +112,7 @@ void Cpu::Execute(u8 opcode)
   case 0x1e:
   case 0x2e:
   case 0x3e:  // LD r8, u8
-    WriteR8((opcode >> 3) & 7, bus->NextByte(regs.pc, regs.pc, cycles));
+    WriteR8((opcode >> 3) & 7, bus->NextByte(regs.pc, cycles));
     break;
   case 0x04:
   case 0x14:
@@ -236,7 +214,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xee:
   {  // XOR u8
-    regs.a ^= bus->NextByte(regs.pc, regs.pc, cycles);
+    regs.a ^= bus->NextByte(regs.pc, cycles);
     bool z = (regs.a == 0);
     bool n = false;
     bool h = false;
@@ -245,10 +223,10 @@ void Cpu::Execute(u8 opcode)
   }
   break;
   case 0xe0:  // LD (FF00 + u8), A
-    bus->WriteByte(0xff00 + bus->NextByte(regs.pc, regs.pc, cycles), regs.a);
+    bus->WriteByte(0xff00 + bus->NextByte(regs.pc, cycles), regs.a);
     break;
   case 0xf0:  // LD A, (FF00 + u8)
-    regs.a = bus->ReadByte(0xff00 + bus->NextByte(regs.pc, regs.pc, cycles));
+    regs.a = bus->ReadByte(0xff00 + bus->NextByte(regs.pc, cycles));
     break;
   case 0xe2:  // LD (FF00 + C), A
     bus->WriteByte(0xff00 + regs.c, regs.a);
@@ -277,14 +255,14 @@ void Cpu::Execute(u8 opcode)
       regs.hl--;
     break;
   case 0x08:  // LD (u16), REGS.SP
-    bus->WriteHalf(bus->NextHalf(regs.pc, regs.pc, cycles), regs.sp);
+    bus->WriteHalf(bus->NextHalf(regs.pc, cycles), regs.sp);
     break;
   case 0xf9:  // LD REGS.SP, HL
     regs.sp = regs.hl;
     break;
   case 0xe8:
   {  // ADD REGS.SP, s8
-    u8 offset = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 offset = bus->NextByte(regs.pc, cycles);
     bool z = false;
     bool n = false;
     bool h = (regs.sp & 0xf) + (offset & 0xf) > 0xf;
@@ -295,7 +273,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xf8:
   {  // LD HL, REGS.SP+s8
-    u8 offset = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 offset = bus->NextByte(regs.pc, cycles);
     bool z = false;
     bool n = false;
     bool h = (regs.sp & 0xf) + (offset & 0xf) > 0xf;
@@ -366,7 +344,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xd6:
   {  // SUB u8
-    u8 op2 = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 op2 = bus->NextByte(regs.pc, cycles);
     u8 result = regs.a - op2;
     bool z = (result == 0);
     bool n = true;
@@ -390,7 +368,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xc6:
   {  // ADD u8
-    u8 op2 = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 op2 = bus->NextByte(regs.pc, cycles);
     u8 result = regs.a + op2;
     bool z = (result == 0);
     bool n = false;
@@ -415,7 +393,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xce:
   {  // ADC u8
-    u8 op2 = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 op2 = bus->NextByte(regs.pc, cycles);
     bool c = (regs.f >> 4) & 1;
     u16 result = (u16)(regs.a + op2 + c);
     bool z = ((result & 0xff) == 0);
@@ -441,7 +419,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xde:
   {  // SBC u8
-    u8 op2 = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 op2 = bus->NextByte(regs.pc, cycles);
     bool c = (regs.f >> 4) & 1;
     u16 result = (u16)(regs.a - op2 - c);
     bool z = ((result & 0xff) == 0);
@@ -465,7 +443,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xe6:
   {  // AND u8
-    u8 op2 = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 op2 = bus->NextByte(regs.pc, cycles);
     regs.a &= op2;
     bool z = (regs.a == 0);
     bool n = false;
@@ -487,7 +465,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xf6:
   {  // OR u8
-    u8 op2 = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 op2 = bus->NextByte(regs.pc, cycles);
     regs.a |= op2;
     bool z = (regs.a == 0);
     bool n = false;
@@ -509,7 +487,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xfe:
   {  // CP u8
-    u8 op2 = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 op2 = bus->NextByte(regs.pc, cycles);
     u8 result = regs.a - op2;
     bool z = (result == 0);
     bool n = true;
@@ -577,7 +555,7 @@ void Cpu::Execute(u8 opcode)
   case 0xdc:
   case 0xcd:
   {  // CALL Cond u16
-    u16 addr = bus->NextHalf(regs.pc, regs.pc, cycles);
+    u16 addr = bus->NextHalf(regs.pc, cycles);
     if (Cond(opcode))
     {
       Push(regs.pc);
@@ -600,10 +578,10 @@ void Cpu::Execute(u8 opcode)
   }
   break;
   case 0xea:  // LD (u16), A
-    bus->WriteByte(bus->NextHalf(regs.pc, regs.pc, cycles), regs.a);
+    bus->WriteByte(bus->NextHalf(regs.pc, cycles), regs.a);
     break;
   case 0xfa:  // LD A, (u16)
-    regs.a = bus->ReadByte(bus->NextHalf(regs.pc, regs.pc, cycles));
+    regs.a = bus->ReadByte(bus->NextHalf(regs.pc, cycles));
     break;
   case 0xc2:
   case 0xd2:
@@ -611,7 +589,7 @@ void Cpu::Execute(u8 opcode)
   case 0xda:
   case 0xc3:
   {  // JP Cond u16
-    u16 addr = bus->NextHalf(regs.pc, regs.pc, cycles);
+    u16 addr = bus->NextHalf(regs.pc, cycles);
     if (Cond(opcode))
     {
       regs.pc = addr;
@@ -623,14 +601,14 @@ void Cpu::Execute(u8 opcode)
     regs.pc = regs.hl;
     break;
   case 0x18:  // JR s8
-    regs.pc += (s8)bus->NextByte(regs.pc, regs.pc, cycles);
+    regs.pc += (s8)bus->NextByte(regs.pc, cycles);
     break;
   case 0x20:
   case 0x30:
   case 0x28:
   case 0x38:
   {  // JR Cond s8
-    s8 offset = (s8)bus->NextByte(regs.pc, regs.pc, cycles);
+    s8 offset = (s8)bus->NextByte(regs.pc, cycles);
     if (Cond(opcode))
     {
       regs.pc += offset;
@@ -640,7 +618,7 @@ void Cpu::Execute(u8 opcode)
   break;
   case 0xcb:
   {
-    u8 cbop = bus->NextByte(regs.pc, regs.pc, cycles);
+    u8 cbop = bus->NextByte(regs.pc, cycles);
     switch (cbop)
     {
     case 0x40 ... 0x7f:
@@ -795,6 +773,8 @@ void Cpu::Execute(u8 opcode)
     printf("Unrecognized opcode: %02x\n", opcode);
     exit(1);
   }
+
+  return cycles;
 }
 
 void Cpu::UpdateF(bool z, bool n, bool h, bool c)
@@ -997,7 +977,7 @@ void Cpu::WriteR16(u8 bits, u16 value)
   }
 }
 
-void Cpu::HandleInterrupts()
+void Cpu::HandleInterrupts(u64& cycles)
 {
   u8 int_mask = bus->mem.ie & bus->mem.io.intf;
 
@@ -1050,13 +1030,13 @@ void Cpu::HandleInterrupts()
   }
 }
 
-void Cpu::HandleTimers()
+void Cpu::DispatchTimers(u64 time, Scheduler& scheduler)
 {
   constexpr int tima_vals[4] = {1024, 16, 64, 256};
   if ((bus->mem.io.tac >> 2) & 1)
   {
     int tima_val = tima_vals[bus->mem.io.tac & 3];
-    tima_cycles += cycles;
+    tima_cycles += time;
     while (tima_cycles >= tima_val)
     {
       tima_cycles -= tima_val;
@@ -1072,7 +1052,7 @@ void Cpu::HandleTimers()
     }
   }
 
-  div_cycles += cycles;
+  div_cycles += time;
   if (div_cycles >= 256)
   {
     div_cycles -= 256;

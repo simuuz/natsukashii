@@ -1,8 +1,6 @@
 #include "ppu.h"
 #include "ini.h"
-#include <memory.h>
 #include <algorithm>
-#include <cmath>
 
 namespace natsukashii::core
 {
@@ -85,82 +83,62 @@ void Ppu::CompareLYC(u8 &intf)
   }
 }
 
-void Ppu::Step(u8 cycles, u8 &intf)
+void Ppu::DispatchEvents(u64 time, Scheduler& scheduler, u8 &intf)
 {
   if (!io.lcdc.enabled)
   {
     return;
   }
 
-  curr_cycles += cycles;
-
   switch (mode)
   {
   case HBlank:
-    if (curr_cycles >= 204)
+    io.ly++;
+    CompareLYC(intf);
+
+    if (io.ly == 0x90)
     {
-      io.ly++;
-      curr_cycles -= 204;
-
-      if (io.ly == 0x90)
-      {
-        ChangeMode(VBlank, intf);
-      }
-      else
-      {
-        ChangeMode(OAM, intf);
-      }
-
-      CompareLYC(intf);
+      ChangeMode(time, scheduler, VBlank, intf);
+    }
+    else
+    {
+      ChangeMode(time, scheduler, OAM, intf);
     }
     break;
   case VBlank:
-    if (curr_cycles >= 456)
-    {
-      io.ly++;
-      curr_cycles -= 456;
-
-      if (io.ly == 154)
-      {
-        io.ly = 0;
-        window_internal_counter = 0;
-        ChangeMode(OAM, intf);
-      }
-
-      CompareLYC(intf);
+    io.ly++;
+    CompareLYC(intf);
+    if (io.ly == 154) {
+      io.ly = 0;
+      window_internal_counter = 0;
+      ChangeMode(time, scheduler, OAM, intf);
+    } else {
+      scheduler.push(Entry(time +  456, Event::PPU));
     }
     break;
   case OAM:
-    if (curr_cycles >= 80)
-    {
-      curr_cycles -= 80;
-      ChangeMode(LCDTransfer, intf);
-    }
+    ChangeMode(time, scheduler, LCDTransfer, intf);
     break;
   case LCDTransfer:
-    if (curr_cycles >= 172)
-    {
-      curr_cycles -= 172;
-      ChangeMode(HBlank, intf);
-    }
+    ChangeMode(time, scheduler, HBlank, intf);
     break;
   }
 }
 
-void Ppu::ChangeMode(Mode m, u8 &intf)
+void Ppu::ChangeMode(u64 time, Scheduler& scheduler, Mode m, u8 &intf)
 {
   mode = m;
   switch (m)
   {
   case HBlank:
-    vram_lock = false;
-    oam_lock = false;
+    scheduler.push(Entry(time + 204, Event::PPU));
     if (io.stat.hblank_int)
     {
       intf |= 2;
     }
     break;
   case VBlank:
+    scheduler.push(Entry(time +  456, Event::PPU));
     intf |= 1;
     if (io.stat.vblank_int)
     {
@@ -168,15 +146,14 @@ void Ppu::ChangeMode(Mode m, u8 &intf)
     }
     break;
   case OAM:
-    oam_lock = true;
+    scheduler.push(Entry(time +  80, Event::PPU));
     if (io.stat.oam_int)
     {
       intf |= 2;
     }
     break;
   case LCDTransfer:
-    vram_lock = true;
-    oam_lock = true;
+    scheduler.push(Entry(time + 172, Event::PPU));
     render = true;
     Scanline();
     break;
@@ -267,18 +244,6 @@ void Ppu::WriteIO(Mem &mem, u16 addr, u8 val, u8 &intf)
   }
 }
 
-template <typename T>
-void Ppu::WriteVRAM(u16 addr, T val)
-{
-  *reinterpret_cast<T*>(&(reinterpret_cast<u8*>(vram))[addr & 0x1fff]) = val;
-}
-
-template <typename T>
-T Ppu::ReadVRAM(u16 addr)
-{
-  return *reinterpret_cast<T*>(&(reinterpret_cast<u8*>(vram))[addr & 0x1fff]);
-}
-
 void Ppu::Scanline()
 {
   RenderBGs();
@@ -318,11 +283,11 @@ void Ppu::RenderBGs()
 
       if (tiledata == 0x8000)
       {
-        tileline = ReadVRAM<u16>(tiledata + ((u16)index << 4) + ((u16)(scrolled_y & 7) << 1));
+        tileline = *(u16*)&vram[tiledata + ((u16)index << 4) + ((u16)(scrolled_y & 7) << 1)];
       }
       else
       {
-        tileline = ReadVRAM<u16>(0x9000 + s16((s8)index) * 16 + ((u16)(scrolled_y & 7) << 1));
+        tileline = *(u16*)&vram[0x9000 + s16((s8)index) * 16 + ((u16)(scrolled_y & 7) << 1)];
       }
     }
 
@@ -385,7 +350,7 @@ void Ppu::RenderSprites()
     u8 pal = (sprites[i].attribs.palnum) ? io.obp1 : io.obp0;
     fbIndex = sprites[i].xpos + WIDTH * io.ly;
     u16 tile_index = io.lcdc.obj_size ? sprites[i].tileidx & ~1 : sprites[i].tileidx;
-    u16 tile = ReadVRAM<u16>(0x8000 | ((tile_index << 4) + (tile_y << 1)));
+    u16 tile = *(u16*)&vram[0x8000 | ((tile_index << 4) + (tile_y << 1))];
 
     for (int x = 0; x < 8; x++)
     {

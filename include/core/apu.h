@@ -14,7 +14,7 @@ namespace natsukashii::core
 {
 struct Apu {
 	~Apu();
-	Apu(bool skip);
+	explicit Apu(bool skip);
 	void Reset();
 	void Step(u8 cycles);
 
@@ -23,17 +23,18 @@ struct Apu {
 	CH3 ch3;
 	CH4 ch4;
 	
-	bool left_enable, right_enable;
-	u8 left_volume, right_volume;
-	u8 nr51;
+	bool left_enable{}, right_enable{};
+	u8 left_volume{}, right_volume{};
+	u8 nr51{};
 	u8 ReadIO(u16 addr);
 	void WriteIO(u16 addr, u8 val);
 	bool skip;
 	u32 sample_clock = 0;
-	int buffer_pos = 0;
-	u8 frame_sequencer_position = 0;
-	float buffer[SAMPLES * 2];
+	float buffer[SAMPLES * 2]{};
 	SDL_AudioDeviceID device;
+	int buffer_pos = 0;
+
+	u8 frame_sequencer_position = 0;
 	bool apu_enabled = false;
 };
 } // natsukashii::core

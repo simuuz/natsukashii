@@ -1,5 +1,6 @@
 #pragma once
-#include "bus.h"
+#include <bus.h>
+#include <scheduler.h>
 
 namespace natsukashii::core
 {
@@ -7,15 +8,14 @@ class Cpu
 {
 public:
   Cpu(bool skip, Bus* bus);
-  void Step();
+  u8 Step();
   void Reset();
   void SaveState(int slot);
   void LoadState(int slot);
   Bus* bus;
   bool halt = false;
-  u64 total_cycles = 0;
-  u8 cycles = 0;
-  void HandleTimers();
+  void DispatchTimers(u64 time, Scheduler& scheduler);
+  void HandleInterrupts(u64& cycles);
   bool skip;
   u8 opcode;
   struct registers
@@ -26,7 +26,8 @@ public:
       {
         u8 f, a;
       };
-      u16 af;
+
+      u16 af = 0;
     };
 
     union
@@ -35,7 +36,8 @@ public:
       {
         u8 c, b;
       };
-      u16 bc;
+
+      u16 bc = 0;
     };
 
     union
@@ -44,7 +46,8 @@ public:
       {
         u8 e, d;
       };
-      u16 de;
+
+      u16 de = 0;
     };
 
     union
@@ -53,7 +56,8 @@ public:
       {
         u8 l, h;
       };
-      u16 hl;
+
+      u16 hl = 0;
     };
 
     u16 sp = 0, pc = 0;
@@ -71,11 +75,10 @@ private:
   u8 ReadR8(u8 bits);
   void WriteR8(u8 bits, u8 value);
 
-  void Execute(u8 opcode);
+  u8 Execute(u8 opcode);
   void Push(u16 val);
   u16 Pop();
   FILE* log;
-  void HandleInterrupts();
   int tima_cycles = 0;
   int div_cycles = 0;
 

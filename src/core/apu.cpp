@@ -6,20 +6,29 @@ Apu::~Apu() {
 	SDL_CloseAudioDevice(device);
 }
 
+void audio_callback(void* userdata, Uint8* buffer, int len) {
+  if(((Apu*)userdata)->buffer_pos >= SAMPLES * 2) {
+    ((Apu*)userdata)->buffer_pos = 0;
+    u32 len = SAMPLES * CHANNELS * sizeof(float);
+    while(SDL_GetQueuedAudioSize(((Apu*)userdata)->device) > len * 4) {	}
+    SDL_QueueAudio(((Apu*)userdata)->device, buffer, len);
+  }
+}
+
 Apu::Apu(bool skip) : skip(skip)
 {
 	SDL_Init(SDL_INIT_AUDIO);
 	memset(buffer, 0, SAMPLES * 2);
-	SDL_AudioSpec spec = {
+	SDL_AudioSpec want = {
 		.freq = FREQUENCY,
 		.format = AUDIO_F32SYS,
 		.channels = CHANNELS,
 		.samples = SAMPLES,
-		.callback = NULL,
-		.userdata = NULL,
-	};
+		.callback = audio_callback,
+		.userdata = this,
+	}, have;
 
-	device = SDL_OpenAudioDevice(nullptr, 0, &spec, nullptr, 0);
+	device = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
 	if (device == 0) {
 		printf("Failed to open audio device: %s\n", SDL_GetError());
 		exit(1);
@@ -36,16 +45,16 @@ void Apu::Reset()
 	ch3.reset();
 	memset(buffer, 0, SAMPLES * 2);
 	SDL_CloseAudioDevice(device);
-	SDL_AudioSpec spec = {
+	SDL_AudioSpec want = {
 		.freq = FREQUENCY,
 		.format = AUDIO_F32SYS,
 		.channels = CHANNELS,
 		.samples = SAMPLES,
-		.callback = NULL,
-		.userdata = NULL,
-	};
+		.callback = audio_callback,
+		.userdata = this,
+	}, have;
 
-	device = SDL_OpenAudioDevice(nullptr, 0, &spec, nullptr, 0);
+	device = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
 	if (device == 0) {
 		printf("Failed to open audio device: %s\n", SDL_GetError());
 		exit(1);
@@ -150,13 +159,6 @@ void Apu::Step(u8 cycles) {
 		if((sample_clock % (4194304 / FREQUENCY)) == 0) {
 			buffer[buffer_pos++] = (left_volume / 7) * ((float)((ch1.sample() + ch2.sample() /*+ ch3.sample()*/)) / 8);
 			buffer[buffer_pos++] = (right_volume / 7) * ((float)((ch1.sample() + ch2.sample() /*+ ch3.sample()*/)) / 8);
-		}
-
-		if(buffer_pos >= SAMPLES * 2) {
-			buffer_pos = 0;
-			u32 len = SAMPLES * CHANNELS * sizeof(float);
-			while(SDL_GetQueuedAudioSize(device) > len * 4) {	}
-			SDL_QueueAudio(device, buffer, len);
 		}
 	}
 }

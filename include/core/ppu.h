@@ -1,5 +1,6 @@
 #pragma once
-#include "mem.h"
+#include <mem.h>
+#include <scheduler.h>
 
 constexpr int VRAM_SZ = 0x2000;
 constexpr int OAM_SZ = 0xa0;
@@ -29,10 +30,10 @@ private:
       u8 raw;
     };
 
-    Attributes(u8 val) : raw(val) { }
+    explicit Attributes(u8 val) : raw(val) { }
   };
 public:
-  Sprite(u8 ypos = 0, u8 xpos = 0, u8 tileidx = 0, u8 attribs = 0)
+  explicit Sprite(u8 ypos = 0, u8 xpos = 0, u8 tileidx = 0, u8 attribs = 0)
         : ypos(ypos), xpos(xpos), tileidx(tileidx), attribs(attribs) { }
   u8 ypos, xpos, tileidx;
   Attributes attribs;
@@ -41,9 +42,8 @@ public:
 class Ppu
 {
 public:
-  Ppu(bool skip);
+  explicit Ppu(bool skip);
   void Reset();
-  void Step(u8 cycles, u8& intf);
   void SaveState(std::ofstream& savestate);
   void LoadState(std::ifstream& loadstate);
 
@@ -53,6 +53,9 @@ public:
 
   friend class Bus;
   bool render = false;
+
+  void DispatchEvents(u64 time, Scheduler& scheduler, u8& intf);
+
 private:
   bool oam_lock = false;
   bool vram_lock = false;
@@ -145,11 +148,8 @@ private:
 
   void WriteIO(Mem& mem, u16 addr, u8 val, u8& intf);
   u8 ReadIO(u16 addr);
-  template <typename T>
-  void WriteVRAM(u16 addr, T val);
-  template <typename T>
-  T ReadVRAM(u16 addr);
-  void ChangeMode(Mode m, u8& intf);
+
+  void ChangeMode(u64 time, Scheduler& scheduler, Mode m, u8& intf);
   void FetchSprites();
   void RenderSprites();
   void RenderBGs();
